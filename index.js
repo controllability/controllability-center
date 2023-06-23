@@ -70,11 +70,13 @@ async function main() {
     })
 
 
-    router.all('/v1/bridge', async (ctx, next) => {
+    router.all('/v1/bridge/:base64url_channel_id', async (ctx, next) => {
         // console.log(ctx.url)
         // console.log(ctx.hostname)
-        // const channel_id = ctx.headers['x-controllability-channel_id']
-        const channel_id = "!DXc3Xs6BNg3Ikb7B:localhost"
+        // const channel_id = "!DXc3Xs6BNg3Ikb7B:localhost"
+        const base64url_channel_id = ctx.params.base64url_channel_id
+        const channel_id = Buffer.from(base64url_channel_id, 'base64url').toString('utf8')
+        // todo: check if channel_id is valid
 
         const deferredPromise = new DeferredPromise()
         channel_id_to_return_value_promise.set(channel_id, deferredPromise)
