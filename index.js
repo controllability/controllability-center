@@ -74,6 +74,7 @@ async function main() {
         // console.log(ctx.url)
         // console.log(ctx.hostname)
         // const channel_id = "!DXc3Xs6BNg3Ikb7B:localhost"
+        // Buffer.from('!DXc3Xs6BNg3Ikb7B:localhost').toString('base64url')
         const base64url_channel_id = ctx.params.base64url_channel_id
         const channel_id = Buffer.from(base64url_channel_id, 'base64url').toString('utf8')
         // todo: check if channel_id is valid
