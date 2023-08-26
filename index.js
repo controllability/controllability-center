@@ -3,6 +3,7 @@ import fs from 'fs'
 import https from 'https'
 
 import Koa from 'koa'
+import bodyParser from 'koa-bodyparser'
 import Router from '@koa/router'
 
 import {ChatClient, DeferredPromise} from './utils.js'
@@ -20,77 +21,32 @@ async function main() {
     const channel_id_to_return_value_promise = new Map()
 
     const app = new Koa()
+    app.use(bodyParser())
     const router = new Router()
 
+    // Should have a configurable mapping of clients
     const adminChatClient = new ChatClient(
         CONTROLLABILITY_CHAT_SERVER_URI,
-        "@alice:localhost",
+        "@bob:localhost",
         CONTROLLABILITY_CHAT_SERVER_ADMIN_ACCESS_TOKEN)
-    await adminChatClient.start_listening()
-    adminChatClient.on('Room.timeline', function (event, room, toStartOfTimeline) {
-        if (event.getType() !== "m.room.message") {
-            return
-        }
-
-        if (event.event.sender === adminChatClient.userId) {
-            return
-        }
-
-        console.log(event.event.sender)
-        console.log(adminChatClient.userId)
-
-        const channel_id = room.roomId
-        const contentBody = event.event.content.body
-
-        const deferredPromise = channel_id_to_return_value_promise.get(channel_id)
-        assert(deferredPromise)
-        deferredPromise.resolve(contentBody)
-    })
 
     const openaiChatClient = new ChatClient(
         CONTROLLABILITY_CHAT_SERVER_URI,
         "@openai:localhost",
         CONTROLLABILITY_CHAT_SERVER_OPENAI_ACCESS_TOKEN)
-    await openaiChatClient.start_listening()
-    openaiChatClient.on('Room.timeline', async function (event, room, toStartOfTimeline) {
-        if (event.getType() !== "m.room.message") {
-            return
+
+    router.post('/message', (ctx, next) => {
+        console.log("got to message endpoint")
+        console.log(ctx.request.body)
+        if (ctx.request.body.author === "user") {
+            // hard-code room ID for now, but should come from config?
+            // In the configs we should have CONTROLLABILITY_CHAT_SERVER_URI
+            // A mapping of IP addresses of agents to their username and access token and a list of rooms they should send their messages to
+            // if dynamic creation is needed, we can expose endpoints here
+            adminChatClient.send("!tQTVaUwQSaF6SzuF:localhost", JSON.stringify(ctx.request.body))
+        } else {
+            openaiChatClient.send("!tQTVaUwQSaF6SzuF:localhost", JSON.stringify(ctx.request.body))
         }
-
-        if (event.event.sender === openaiChatClient.userId) {
-            return
-        }
-
-        const channel_id = room.roomId
-        const content_body = event.event.content.body
-
-        // todo: make request to openai
-
-        await openaiChatClient.send(channel_id, "openai resp")
-    })
-
-
-    router.all('/v1/bridge/:base64url_channel_id', async (ctx, next) => {
-        // console.log(ctx.url)
-        // console.log(ctx.hostname)
-        // const channel_id = "!DXc3Xs6BNg3Ikb7B:localhost"
-        // Buffer.from('!DXc3Xs6BNg3Ikb7B:localhost').toString('base64url')
-        const base64url_channel_id = ctx.params.base64url_channel_id
-        const channel_id = Buffer.from(base64url_channel_id, 'base64url').toString('utf8')
-        // todo: check if channel_id is valid
-
-        const deferredPromise = new DeferredPromise()
-        channel_id_to_return_value_promise.set(channel_id, deferredPromise)
-
-        const body = {
-            method: ctx.method,
-            url: "todo",
-            headers: {},
-            data: {},
-        }
-
-        await adminChatClient.send(channel_id, JSON.stringify(body))
-        ctx.body = await deferredPromise.promise
     })
 
     app.use(router.routes()).use(router.allowedMethods())
